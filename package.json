@@ -2,12 +2,16 @@
   "name": "purepibot",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.22.0",
     "body-parser": "^1.19.0",
-    "dotenv": "^8.2.0",
-    "express": "^4.17.1"
+    "dotenv": "^8.6.0",
+    "express": "^4.17.1",
+    "grammy": "^1.3.3",
+    "grammy-inline-menu": "^7.0.1",
+    "mysql2": "^2.3.0",
+    "telegraf": "^4.4.2"
   },
   "devDependencies": {
     "nodemon": "^2.0.4"
