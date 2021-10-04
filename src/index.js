@@ -76,7 +76,7 @@ noteScene.action(/^cancel:[0-9]+$/, async ctx => {
   try {
     const result = await noteModel.findOne({id})
     let date = new Date(result.created_at*1000);
-    return ctx.editMessageText(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`, note_keyboard(id))
+    return ctx.editMessageText(`📒 ${result.name}\n\n 📎 ${result.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`, note_keyboard(id))
   } catch (error) {
     return ctx.reply('Error cancel')
   }
