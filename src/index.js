@@ -48,7 +48,7 @@ noteScene.enter( async ctx => {
     const result = await noteModel.find({user_id})
     result.forEach((element) => {
       let date = new Date(element.created_at*1000);
-      ctx.reply(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.getDate()}/${date.getMonth()+1} ${date.getHours()}:${date.getMinutes()}`, note_keyboard(element.id))
+      ctx.reply(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.toLocaleString("en-US", {hour: "numeric"})}:${date.toLocaleString("en-US", {minute: "numeric"})}`, note_keyboard(element.id))
     })
   } catch (error) {
     ctx.reply('Error while get notes')
@@ -76,7 +76,7 @@ noteScene.action(/^cancel:[0-9]+$/, async ctx => {
   try {
     const result = await noteModel.findOne({id})
     let date = new Date(result.created_at*1000);
-    return ctx.editMessageText(`📒 ${result.name}\n\n 📎 ${result.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.getDate()}/${date.getMonth()+1} ${date.getHours()}:${date.getMinutes()}`, note_keyboard(id))
+    return ctx.editMessageText(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.toLocaleString("en-US", {hour: "numeric"})}:${date.toLocaleString("en-US", {minute: "numeric"})}`, note_keyboard(id))
   } catch (error) {
     return ctx.reply('Error cancel')
   }
@@ -101,7 +101,7 @@ homeTask.enter( async ctx => {
     const result = await noteModel.find({user_id})
     result.forEach((element) => {
       let date = new Date(element.created_at*1000);
-      ctx.reply(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.getDate()}/${date.getMonth()+1} ${date.getHours()}:${date.getMinutes()}`)
+      ctx.reply(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.toLocaleString("en-US", {hour: "numeric"})}:${date.toLocaleString("en-US", {minute: "numeric"})}`)
     })
   } catch (error) {
     ctx.reply('Error while get notes')
