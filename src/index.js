@@ -1,10 +1,16 @@
 const { Telegraf, session, Scenes: {WizardScene, BaseScene, Stage}, Markup } = require('telegraf')
 const userModel = require('./models/user.model')
 const noteModel = require('./models/note.model')
-const e = require('express')
 require('dotenv').config()
 
+const DONE_STATUS = 20;
+const ACTIVE_STATUS = 10;
+const DELETED_STATUS = 0;
+
 const token = process.env.TELEGRAM_TOKEN
+
+const exit_keyboard = Markup.keyboard([ 'exit' ]).oneTime()
+const remove_keyboard = Markup.removeKeyboard()
 
 const note_keyboard = (note_id) => Markup.inlineKeyboard([
   Markup.button.callback('✅', `done:${note_id}`),
@@ -21,7 +27,7 @@ const nameHandler = Telegraf.on('text', async ctx => {
 
   ctx.scene.state.name = ctx.message.text
 
-  await ctx.reply('Type note text please.')
+  await ctx.reply('Type note text please.', exit_keyboard)
 
   return ctx.wizard.next()
 })
@@ -33,9 +39,9 @@ const textHandler = Telegraf.on('text', async ctx => {
 
   try {
     await noteModel.create({user_id, name, text})
-    await ctx.reply('New note has been set!')
+    await ctx.reply('New note has been set!', remove_keyboard)
   } catch (error) {
-    ctx.reply('Error while create note.')
+    ctx.reply('Error while create note.', remove_keyboard)
   }
 
   return ctx.scene.leave()
@@ -45,7 +51,7 @@ const noteScene = new BaseScene('noteScene')
 noteScene.enter( async ctx => {
   const user_id = ctx.scene.state.user_id
   try {
-    const result = await noteModel.find({user_id})
+    const result = await noteModel.find(user_id, ACTIVE_STATUS)
     result.forEach((element) => {
       let date = new Date(element.created_at*1000);
       ctx.reply(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`, note_keyboard(element.id))
@@ -58,9 +64,15 @@ noteScene.action(/^edit:[0-9]+$/, ctx => {
   const id = ctx.callbackQuery.data.split(':')[1]
   ctx.answerCbQuery('Note edit!')
 })
-noteScene.action(/^done:[0-9]+$/, ctx => {
+noteScene.action(/^done:[0-9]+$/, async ctx => {
   const id = ctx.callbackQuery.data.split(':')[1]
-  ctx.answerCbQuery('Note done!')
+
+  try {
+    const result = await noteModel.update({status: DONE_STATUS}, id)
+    if (result) return ctx.editMessageText('✅ Note done', id)
+  } catch (error) {
+    return ctx.reply('Error cancel')
+  }
 })
 noteScene.action(/^remove:[0-9]+$/, ctx => {
 
@@ -86,8 +98,8 @@ noteScene.action(/^yes:[0-9]+$/, async ctx => {
   const id = ctx.callbackQuery.data.split(':')[1]
 
   try {
-    const result = await noteModel.delete(id)
-    if (result) return ctx.editMessageText('Note deleted', id)
+    const result = await noteModel.update({status: DELETED_STATUS}, id)
+    if (result) return ctx.editMessageText('🗑 Note deleted', id)
   } catch (error) {
     return ctx.reply('Error delete')
   }
@@ -98,7 +110,7 @@ const homeTask = new BaseScene('homeTask')
 homeTask.enter( async ctx => {
   const user_id = 847840905
   try {
-    const result = await noteModel.find({user_id})
+    const result = await noteModel.find(user_id, ACTIVE_STATUS)
     result.forEach((element) => {
       let date = new Date(element.created_at*1000);
       ctx.reply(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`)
@@ -110,7 +122,7 @@ homeTask.enter( async ctx => {
 homeTask.leave()
 
 const addNoteStage = new WizardScene('addNoteStage', nameHandler, textHandler)
-addNoteStage.enter(ctx => ctx.reply('Alright, a new note. How are we going to call it?'))
+addNoteStage.enter(ctx => ctx.reply('Alright, a new note. How are we going to call it?', exit_keyboard))
 
 const stage = new Stage([ noteScene, addNoteStage, homeTask ])
 stage.hears('exit', ctx => ctx.scene.leave())
