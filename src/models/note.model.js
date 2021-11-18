@@ -37,7 +37,7 @@ class NoteModel {
         (user_id, name, text, status, created_at, updated_at) VALUES (?,?,?,?,?,?)`;
 
         const result = await query(sql, [user_id, name, text, ACTIVE_STATUS, getCurrentTimestamp(), getCurrentTimestamp()]);
-        const affectedRows = result ? result.affectedRows : 0;
+        const affectedRows = result ? result : 0;
 
         return affectedRows;
     }

@@ -38,14 +38,36 @@ const textHandler = Telegraf.on('text', async ctx => {
   const user_id = ctx.message.from.id
 
   try {
-    await noteModel.create({user_id, name, text})
+    const result = await noteModel.create({user_id, name, text})
     await ctx.reply('New note has been set!', remove_keyboard)
+
+    sendPushNotification(result.insertId)
   } catch (error) {
     ctx.reply('Error while create note.', remove_keyboard)
   }
 
   return ctx.scene.leave()
 })
+
+const sendPushNotification = async (id) => {
+  try {
+    const new_note = await noteModel.findOne({id})
+    let date = new Date(new_note.created_at*1000)
+
+    let message = `🔥 Added new homework\n\n 📒 ${new_note.name}\n\n 📎 ${new_note.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`
+
+    const result = await userModel.find()
+    result.forEach( async (element) => {
+      try{
+        await bot.telegram.sendMessage(element.telegram_id, message)
+      } catch (error) {
+        console.log(error)
+      }
+    })
+  } catch (error) {
+    console.log('Error while sending push message')
+  }
+}
 
 const noteScene = new BaseScene('noteScene')
 noteScene.enter( async ctx => {

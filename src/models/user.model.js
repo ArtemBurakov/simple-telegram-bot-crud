@@ -17,6 +17,14 @@ class UserModel {
         return result[0];
     }
 
+    find = async () => {
+        const sql = `SELECT * FROM ${this.tableName} WHERE 1`;
+
+        const result = await query(sql);
+
+        return result;
+    }
+
     create = async ({telegram_id, role = Role.SuperUser}) => {
         const sql = `INSERT INTO ${this.tableName}
         (telegram_id, role) VALUES (?,?)`;
