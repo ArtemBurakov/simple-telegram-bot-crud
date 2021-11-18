@@ -25,7 +25,7 @@ class NoteModel {
     }
 
     find = async (user_id, status) => {
-        const sql = `SELECT * FROM ${this.tableName} WHERE user_id = ? AND status = ?`;
+        const sql = `SELECT * FROM ${this.tableName} WHERE user_id = ? AND status = ? ORDER BY updated_at DESC`;
 
         const result = await query(sql, [user_id, status]);
 
