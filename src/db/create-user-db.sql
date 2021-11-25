@@ -21,5 +21,6 @@ CREATE TABLE IF NOT EXISTS user_notes
      text         VARCHAR(255) NOT NULL,
      status       INT NOT NULL DEFAULT 10,
      created_at   INT NOT NULL,
-     updated_at   INT NOT NULL
+     updated_at   INT NOT NULL,
+     deadline_at  INT NOT NULL
   );

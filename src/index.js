@@ -1,6 +1,7 @@
 const { Telegraf, session, Scenes: {WizardScene, BaseScene, Stage}, Markup } = require('telegraf')
 const userModel = require('./models/user.model')
 const noteModel = require('./models/note.model')
+const Calendar = require('telegraf-calendar-telegram');
 require('dotenv').config()
 
 const DONE_STATUS = 20;
@@ -27,19 +28,38 @@ const nameHandler = Telegraf.on('text', async ctx => {
 
   ctx.scene.state.name = ctx.message.text
 
-  await ctx.reply('Type note text please.', exit_keyboard)
+  await ctx.replyWithMarkdown('\*Type note text please\*', exit_keyboard)
 
   return ctx.wizard.next()
 })
 
 const textHandler = Telegraf.on('text', async ctx => {
-  const name = ctx.scene.state.name
-  const text = ctx.message.text
+  ctx.scene.state.text = ctx.message.text
+
+  const today = new Date();
+	const minDate = new Date();
+	minDate.setMonth(today.getMonth() - 2);
+	const maxDate = new Date();
+	maxDate.setMonth(today.getMonth() + 2);
+	maxDate.setDate(today.getDate());
+
+  await ctx.replyWithMarkdown('<b>Select month and date please</b>', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
+
+  return ctx.wizard.next()
+})
+
+const timeHandler = Telegraf.on('text', async ctx => {
   const user_id = ctx.message.from.id
+  const name = ctx.scene.state.name
+  const text = ctx.scene.state.text
+  const date = ctx.scene.state.date
+  const time = ctx.message.text
+
+  let deadline_at = Math.floor(new Date(`${date} ${time} +0000 GMT +0200`) / 1000)
 
   try {
-    const result = await noteModel.create({user_id, name, text})
-    await ctx.reply('New note has been set!', remove_keyboard)
+    const result = await noteModel.create({user_id, name, text, deadline_at})
+    await ctx.replyWithMarkdown('\*New note has been set!\*', remove_keyboard)
 
     sendPushNotification(result.insertId)
   } catch (error) {
@@ -52,14 +72,14 @@ const textHandler = Telegraf.on('text', async ctx => {
 const sendPushNotification = async (id) => {
   try {
     const new_note = await noteModel.findOne({id})
-    let date = new Date(new_note.created_at*1000)
+    let date = new Date(new_note.deadline_at*1000)
 
-    let message = `🔥 Added new homework\n\n 📒 ${new_note.name}\n\n 📎 ${new_note.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`
+    let message = `🔥 \*Added new homework\*\n\n 📒 \*${new_note.name}\*\n\n 📎 \_${new_note.text}\_\n\n ⏱ \*${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}\*`
 
     const result = await userModel.find()
     result.forEach( async (element) => {
       try{
-        await bot.telegram.sendMessage(element.telegram_id, message)
+        await bot.telegram.sendMessage(element.telegram_id, message, { parse_mode: 'Markdown' })
       } catch (error) {
         console.log(error)
       }
@@ -75,8 +95,8 @@ noteScene.enter( async ctx => {
   try {
     const result = await noteModel.find(user_id, ACTIVE_STATUS)
     result.forEach((element) => {
-      let date = new Date(element.created_at*1000);
-      ctx.reply(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`, note_keyboard(element.id))
+      let date = new Date(element.deadline_at*1000);
+      ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ⏱ \*${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}\*`, note_keyboard(element.id))
     })
   } catch (error) {
     ctx.reply('Error while get notes')
@@ -134,8 +154,8 @@ homeTask.enter( async ctx => {
   try {
     const result = await noteModel.find(user_id, ACTIVE_STATUS)
     result.forEach((element) => {
-      let date = new Date(element.created_at*1000);
-      ctx.reply(`📒 ${element.name}\n\n 📎 ${element.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`)
+      let date = new Date(element.deadline_at*1000);
+      ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ⏱ \*${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}\*`)
     })
   } catch (error) {
     ctx.reply('Error while get notes')
@@ -143,8 +163,8 @@ homeTask.enter( async ctx => {
 })
 homeTask.leave()
 
-const addNoteStage = new WizardScene('addNoteStage', nameHandler, textHandler)
-addNoteStage.enter(ctx => ctx.reply('Alright, a new note. How are we going to call it?', exit_keyboard))
+const addNoteStage = new WizardScene('addNoteStage', nameHandler, textHandler, timeHandler)
+addNoteStage.enter(ctx => ctx.replyWithMarkdown('\*Alright, a new note. How are we going to call it?\*', exit_keyboard))
 
 const stage = new Stage([ noteScene, addNoteStage, homeTask ])
 stage.hears('exit', ctx => ctx.scene.leave())
@@ -157,6 +177,25 @@ bot.use(
   })
 )
 bot.use(stage.middleware())
+
+// instantiate the calendar
+const calendar = new Calendar(bot, {
+  startWeekDay: 0,
+  weekDayNames: ["S", "M", "T", "W", "T", "F", "S"],
+  monthNames: [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  ],
+  minDate: null,
+  maxDate: null
+})
+
+// listen for the selected date event
+calendar.setDateListener((ctx, date) => {
+  ctx.scene.state.date = date
+
+  ctx.replyWithMarkdown('\*Type deadline time please\*', exit_keyboard)
+});
 
 bot.command('/start', async ctx => {
   const telegram_id = ctx.message.from.id

@@ -32,11 +32,11 @@ class NoteModel {
         return result;
     }
 
-    create = async ({user_id, name, text}) => {
+    create = async ({user_id, name, text, deadline_at}) => {
         const sql = `INSERT INTO ${this.tableName}
-        (user_id, name, text, status, created_at, updated_at) VALUES (?,?,?,?,?,?)`;
+        (user_id, name, text, status, created_at, updated_at, deadline_at) VALUES (?,?,?,?,?,?,?)`;
 
-        const result = await query(sql, [user_id, name, text, ACTIVE_STATUS, getCurrentTimestamp(), getCurrentTimestamp()]);
+        const result = await query(sql, [user_id, name, text, ACTIVE_STATUS, getCurrentTimestamp(), getCurrentTimestamp(), deadline_at]);
         const affectedRows = result ? result : 0;
 
         return affectedRows;
