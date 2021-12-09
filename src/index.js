@@ -61,7 +61,9 @@ const timeHandler = Telegraf.on('text', async ctx => {
     const result = await noteModel.create({user_id, name, text, deadline_at})
     await ctx.replyWithMarkdown('\*New note has been set!\*', remove_keyboard)
 
-    sendPushNotification(result.insertId)
+    if (user_id == 847840905 || user_id == 655224768) {
+      sendPushNotification(result.insertId)
+    }
   } catch (error) {
     ctx.reply('Error while create note.', remove_keyboard)
   }
