@@ -152,6 +152,8 @@ noteScene.leave()
 
 const homeTask = new BaseScene('homeTask')
 homeTask.enter( async ctx => {
+  console.log('Get home task -> ' + ctx.scene.state.user_id);
+
   const user_id = 847840905
   try {
     const result = await noteModel.find(user_id, ACTIVE_STATUS)
