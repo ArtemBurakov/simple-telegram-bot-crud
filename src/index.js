@@ -152,7 +152,7 @@ noteScene.leave()
 
 const homeTask = new BaseScene('homeTask')
 homeTask.enter( async ctx => {
-  console.log('Get home task -> ' + ctx.scene.state.user_id);
+  console.log('Get home task -> ' + ctx.message.from.id);
 
   const user_id = 847840905
   try {
