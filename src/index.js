@@ -1,6 +1,7 @@
 const { Telegraf, session, Scenes: {WizardScene, BaseScene, Stage}, Markup } = require('telegraf')
 const userModel = require('./models/user.model')
 const noteModel = require('./models/note.model')
+const homeTaskModel = require('./models/hometask.model')
 const Calendar = require('telegraf-calendar-telegram');
 require('dotenv').config()
 
@@ -60,10 +61,6 @@ const timeHandler = Telegraf.on('text', async ctx => {
   try {
     const result = await noteModel.create({user_id, name, text, deadline_at})
     await ctx.replyWithMarkdown('\*New note has been set!\*', remove_keyboard)
-
-    if (user_id == 847840905 || user_id == 655224768) {
-      sendPushNotification(result.insertId)
-    }
   } catch (error) {
     ctx.reply('Error while create note.', remove_keyboard)
   }
@@ -71,12 +68,57 @@ const timeHandler = Telegraf.on('text', async ctx => {
   return ctx.scene.leave()
 })
 
+const nameHomeTaskHandler = Telegraf.on('text', async ctx => {
+
+  ctx.scene.state.name = ctx.message.text
+
+  await ctx.replyWithMarkdown('\*Type hometask text please\*', exit_keyboard)
+
+  return ctx.wizard.next()
+})
+
+const textHomeTaskHandler = Telegraf.on('text', async ctx => {
+  ctx.scene.state.text = ctx.message.text
+
+  const today = new Date();
+	const minDate = new Date();
+	minDate.setMonth(today.getMonth() - 2);
+	const maxDate = new Date();
+	maxDate.setMonth(today.getMonth() + 2);
+	maxDate.setDate(today.getDate());
+
+  await ctx.replyWithMarkdown('<b>Select month and date please</b>', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
+
+  return ctx.wizard.next()
+})
+
+const timeHomeTaskHandler = Telegraf.on('text', async ctx => {
+  const user_id = ctx.message.from.id
+  const name = ctx.scene.state.name
+  const text = ctx.scene.state.text
+  const date = ctx.scene.state.date
+  const time = ctx.message.text
+
+  let deadline_at = Math.floor(new Date(`${date} ${time} +0000 GMT +0200`) / 1000)
+
+  try {
+    const result = await homeTaskModel.create({user_id, name, text, deadline_at})
+    await ctx.replyWithMarkdown('\*New hometask has been set!\*', remove_keyboard)
+
+    sendPushNotification(result.insertId)
+  } catch (error) {
+    ctx.reply('Error while create hometask.', remove_keyboard)
+  }
+
+  return ctx.scene.leave()
+})
+
 const sendPushNotification = async (id) => {
   try {
-    const new_note = await noteModel.findOne({id})
-    let date = new Date(new_note.deadline_at*1000)
+    const new_homeTask = await homeTaskModel.findOne({id})
+    let date = await convertMS(new_homeTask.deadline_at*1000)
 
-    let message = `🔥 \*Added new homework\*\n\n 📒 \*${new_note.name}\*\n\n 📎 \_${new_note.text}\_\n\n ⏱ \*${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}\*`
+    let message = `🔥 \*Added new homework\*\n\n 📒 \*${new_homeTask.name}\*\n\n 📎 \_${new_homeTask.text}\_\n\n ⏱ \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`
 
     const result = await userModel.find()
     result.forEach( async (element) => {
@@ -91,14 +133,65 @@ const sendPushNotification = async (id) => {
   }
 }
 
+const convertMS = async (deadline) => {
+  let date = Date.now();
+  
+  let milliseconds = deadline - date;
+  
+  let day, hour, minute, seconds, inTime;
+  seconds = Math.floor(milliseconds / 1000);
+  minute = Math.floor(seconds / 60);
+  seconds = seconds % 60;
+  hour = Math.floor(minute / 60);
+  minute = minute % 60;
+  day = Math.floor(hour / 24);
+  hour = hour % 24;
+
+  if (day >= 5) {
+    return {
+      day: `${day} days`,
+      hour: '',
+      minute: '',
+      seconds: ''
+    }
+  }
+
+  if (day <= 5 && day >= 1) {
+    return {
+      day: `${day} days`,
+      hour: `${hour} hours`,
+      minute: '',
+      seconds: ''
+    }
+  }
+
+  if (day <= 1 && hour >= 1) {
+    return {
+      day: '',
+      hour: `${hour} hours`,
+      minute: minute == 0 ? '' : `${minute} minutes`,
+      seconds: ''
+    }
+  }
+
+  if (hour <= 1) {
+    return {
+      day: '',
+      hour: '',
+      minute: minute == 0 ? '' : `${minute} minutes`,
+      seconds: seconds == 0 ? '' :  `${seconds} seconds`
+    }
+  }
+}
+
 const noteScene = new BaseScene('noteScene')
 noteScene.enter( async ctx => {
   const user_id = ctx.scene.state.user_id
   try {
     const result = await noteModel.find(user_id, ACTIVE_STATUS)
-    result.forEach((element) => {
-      let date = new Date(element.deadline_at*1000);
-      ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ⏱ \*${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}\*`, note_keyboard(element.id))
+    result.forEach(async (element) => {
+      let date = await convertMS(element.deadline_at*1000)
+      await ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ⏱ \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`, note_keyboard(element.id))
     })
   } catch (error) {
     ctx.reply('Error while get notes')
@@ -131,8 +224,8 @@ noteScene.action(/^cancel:[0-9]+$/, async ctx => {
 
   try {
     const result = await noteModel.findOne({id})
-    let date = new Date(result.created_at*1000);
-    return ctx.editMessageText(`📒 ${result.name}\n\n 📎 ${result.text}\n\n ⏱ ${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}`, note_keyboard(id))
+    let date = await convertMS(result.deadline_at*1000)
+    return ctx.editMessageText(`📒 ${result.name}\n\n 📎 ${result.text}\n\n ⏱ Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}`, note_keyboard(id))
   } catch (error) {
     return ctx.reply('Error cancel')
   }
@@ -152,25 +245,27 @@ noteScene.leave()
 
 const homeTask = new BaseScene('homeTask')
 homeTask.enter( async ctx => {
-  console.log('Get home task -> ' + ctx.message.from.id);
+  console.log('Get home task -> username: ' + ctx.message.from.username + ', ' + ctx.message.from.first_name);
 
-  const user_id = 847840905
   try {
-    const result = await noteModel.find(user_id, ACTIVE_STATUS)
-    result.forEach((element) => {
-      let date = new Date(element.deadline_at*1000);
-      ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ⏱ \*${date.toLocaleDateString('en-US', {weekday: 'long'})} ${date.toLocaleDateString('en-US', {day: "numeric"})}/${date.getMonth()+1}/${date.getFullYear()} ${date.getHours()}:${('0'+date.getMinutes()).slice(-2)}\*`)
+    const result = await homeTaskModel.find(ACTIVE_STATUS)
+    result.forEach(async (element) => {
+      let date = await convertMS(element.deadline_at*1000)
+      await ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ⏱ \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`)
     })
   } catch (error) {
-    ctx.reply('Error while get notes')
+    ctx.reply('Error while get hometask')
   }
 })
 homeTask.leave()
 
+const addHomeTaskStage = new WizardScene('addHomeTaskStage', nameHomeTaskHandler, textHomeTaskHandler, timeHomeTaskHandler)
+addHomeTaskStage.enter(ctx => ctx.replyWithMarkdown('\*Alright, a new hometask. How are we going to call it?\*', exit_keyboard))
+
 const addNoteStage = new WizardScene('addNoteStage', nameHandler, textHandler, timeHandler)
 addNoteStage.enter(ctx => ctx.replyWithMarkdown('\*Alright, a new note. How are we going to call it?\*', exit_keyboard))
 
-const stage = new Stage([ noteScene, addNoteStage, homeTask ])
+const stage = new Stage([ noteScene, addNoteStage, homeTask, addHomeTaskStage ])
 stage.hears('exit', ctx => ctx.scene.leave())
 
 const bot = new Telegraf(token)
@@ -215,6 +310,8 @@ bot.command('/start', async ctx => {
 })
 
 bot.command('/gethometask', ctx => ctx.scene.enter('homeTask'))
+
+bot.command('/addhometask', ctx => ctx.scene.enter('addHomeTaskStage'))
 
 bot.command('/addnote', ctx => ctx.scene.enter('addNoteStage'))
 
