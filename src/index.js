@@ -118,7 +118,7 @@ const sendPushNotification = async (id) => {
     const new_homeTask = await homeTaskModel.findOne({id})
     let date = await convertMS(new_homeTask.deadline_at*1000)
 
-    let message = `🔥 \*Added new homework\*\n\n 📒 \*${new_homeTask.name}\*\n\n 📎 \_${new_homeTask.text}\_\n\n ⏱ \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`
+    let message = `🔥 \*Added new homework\*\n\n 📒 \*${new_homeTask.name}\*\n\n 📎 \_${new_homeTask.text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`
 
     const result = await userModel.find()
     result.forEach( async (element) => {
@@ -138,6 +138,8 @@ const convertMS = async (deadline) => {
   
   let milliseconds = deadline - date;
   
+  if (milliseconds < 0) return false;
+
   let day, hour, minute, seconds, inTime;
   seconds = Math.floor(milliseconds / 1000);
   minute = Math.floor(seconds / 60);
@@ -191,7 +193,7 @@ noteScene.enter( async ctx => {
     const result = await noteModel.find(user_id, ACTIVE_STATUS)
     result.forEach(async (element) => {
       let date = await convertMS(element.deadline_at*1000)
-      await ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ⏱ \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`, note_keyboard(element.id))
+      await ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`, note_keyboard(element.id))
     })
   } catch (error) {
     ctx.reply('Error while get notes')
@@ -225,7 +227,7 @@ noteScene.action(/^cancel:[0-9]+$/, async ctx => {
   try {
     const result = await noteModel.findOne({id})
     let date = await convertMS(result.deadline_at*1000)
-    return ctx.editMessageText(`📒 ${result.name}\n\n 📎 ${result.text}\n\n ⏱ Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}`, note_keyboard(id))
+    return ctx.editMessageText(`📒 ${result.name}\n\n 📎 ${result.text}\n\n 💣 Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}`, note_keyboard(id))
   } catch (error) {
     return ctx.reply('Error cancel')
   }
@@ -251,7 +253,12 @@ homeTask.enter( async ctx => {
     const result = await homeTaskModel.find(ACTIVE_STATUS)
     result.forEach(async (element) => {
       let date = await convertMS(element.deadline_at*1000)
-      await ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ⏱ \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`)
+
+      if (date) {
+        await ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`)
+      } else {
+        await ctx.replyWithMarkdown(`📕 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ❌ Home task is missing!`)
+      }
     })
   } catch (error) {
     ctx.reply('Error while get hometask')
