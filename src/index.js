@@ -2,8 +2,10 @@ const { Telegraf, session, Scenes: {WizardScene, BaseScene, Stage}, Markup } = r
 const userModel = require('./models/user.model')
 const noteModel = require('./models/note.model')
 const homeTaskModel = require('./models/hometask.model')
-const Calendar = require('telegraf-calendar-telegram');
+const Calendar = require('telegraf-calendar-telegram')
 require('dotenv').config()
+
+const CryptoJS = require("crypto-js");
 
 const DONE_STATUS = 20;
 const ACTIVE_STATUS = 10;
@@ -51,15 +53,15 @@ const textHandler = Telegraf.on('text', async ctx => {
 
 const timeHandler = Telegraf.on('text', async ctx => {
   const user_id = ctx.message.from.id
-  const name = ctx.scene.state.name
-  const text = ctx.scene.state.text
+  const name = CryptoJS.AES.encrypt(ctx.scene.state.name, process.env.SECRET_KEY).toString();
+  const text = CryptoJS.AES.encrypt(ctx.scene.state.text, process.env.SECRET_KEY).toString();
   const date = ctx.scene.state.date
   const time = ctx.message.text
 
   let deadline_at = Math.floor(new Date(`${date} ${time} +0000 GMT +0200`) / 1000)
 
   try {
-    const result = await noteModel.create({user_id, name, text, deadline_at})
+    await noteModel.create({user_id, name, text, deadline_at})
     await ctx.replyWithMarkdown('\*New note has been set!\*', remove_keyboard)
   } catch (error) {
     ctx.reply('Error while create note.', remove_keyboard)
@@ -94,8 +96,8 @@ const textHomeTaskHandler = Telegraf.on('text', async ctx => {
 
 const timeHomeTaskHandler = Telegraf.on('text', async ctx => {
   const user_id = ctx.message.from.id
-  const name = ctx.scene.state.name
-  const text = ctx.scene.state.text
+  const name = CryptoJS.AES.encrypt(ctx.scene.state.name, process.env.SECRET_KEY).toString();
+  const text = CryptoJS.AES.encrypt(ctx.scene.state.text, process.env.SECRET_KEY).toString();
   const date = ctx.scene.state.date
   const time = ctx.message.text
 
@@ -116,9 +118,11 @@ const timeHomeTaskHandler = Telegraf.on('text', async ctx => {
 const sendPushNotification = async (id) => {
   try {
     const new_homeTask = await homeTaskModel.findOne({id})
+    let name = CryptoJS.AES.decrypt(new_homeTask.name, process.env.SECRET_KEY).toString(CryptoJS.enc.Utf8);
+    let text = CryptoJS.AES.decrypt(new_homeTask.text, process.env.SECRET_KEY).toString(CryptoJS.enc.Utf8);
     let date = await convertMS(new_homeTask.deadline_at*1000)
 
-    let message = `🔥 \*Added new homework\*\n\n 📒 \*${new_homeTask.name}\*\n\n 📎 \_${new_homeTask.text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`
+    let message = `🔥 \*Added new homework\*\n\n 📒 \*${name}\*\n\n 📎 \_${text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`
 
     const result = await userModel.find()
     result.forEach( async (element) => {
@@ -192,8 +196,10 @@ noteScene.enter( async ctx => {
   try {
     const result = await noteModel.find(user_id, ACTIVE_STATUS)
     result.forEach(async (element) => {
+      let name = CryptoJS.AES.decrypt(element.name, process.env.SECRET_KEY).toString(CryptoJS.enc.Utf8);
+      let text = CryptoJS.AES.decrypt(element.text, process.env.SECRET_KEY).toString(CryptoJS.enc.Utf8);
       let date = await convertMS(element.deadline_at*1000)
-      await ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`, note_keyboard(element.id))
+      await ctx.replyWithMarkdown(`📒 \*${name}\*\n\n 📎 \_${text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`, note_keyboard(element.id))
     })
   } catch (error) {
     ctx.reply('Error while get notes')
@@ -226,8 +232,10 @@ noteScene.action(/^cancel:[0-9]+$/, async ctx => {
 
   try {
     const result = await noteModel.findOne({id})
+    let name = CryptoJS.AES.decrypt(result.name, process.env.SECRET_KEY).toString(CryptoJS.enc.Utf8);
+    let text = CryptoJS.AES.decrypt(result.text, process.env.SECRET_KEY).toString(CryptoJS.enc.Utf8);
     let date = await convertMS(result.deadline_at*1000)
-    return ctx.editMessageText(`📒 ${result.name}\n\n 📎 ${result.text}\n\n 💣 Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}`, note_keyboard(id))
+    return ctx.editMessageText(`📒 ${name}\n\n 📎 ${text}\n\n 💣 Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}`, note_keyboard(id))
   } catch (error) {
     return ctx.reply('Error cancel')
   }
@@ -252,12 +260,14 @@ homeTask.enter( async ctx => {
   try {
     const result = await homeTaskModel.find(ACTIVE_STATUS)
     result.forEach(async (element) => {
+      let name = CryptoJS.AES.decrypt(element.name, process.env.SECRET_KEY).toString(CryptoJS.enc.Utf8);
+      let text = CryptoJS.AES.decrypt(element.text, process.env.SECRET_KEY).toString(CryptoJS.enc.Utf8);
       let date = await convertMS(element.deadline_at*1000)
 
       if (date) {
-        await ctx.replyWithMarkdown(`📒 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`)
+        await ctx.replyWithMarkdown(`📒 \*${name}\*\n\n 📎 \_${text}\_\n\n 💣 \*Time left: ${date.day} ${date.hour} ${date.minute} ${date.seconds}\*`)
       } else {
-        await ctx.replyWithMarkdown(`📕 \*${element.name}\*\n\n 📎 \_${element.text}\_\n\n ❌ Home task is missing!`)
+        await ctx.replyWithMarkdown(`📕 \*${name}\*\n\n 📎 \_${text}\_\n\n ❌ Home task is missing!`)
       }
     })
   } catch (error) {
